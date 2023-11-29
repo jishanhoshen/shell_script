@@ -1,13 +1,15 @@
 #!/bin/bash
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <domain>"
+    echo "Usage: $0 <domain> [backup]"
     exit 1
 fi
 
 DOMAIN=$1
 
-/home/ongsho_dev/script/backup.sh $DOMAIN '/home/ongsho_dev/backup'
+if [ -n "$2" ] && [ "$2" != "false" ]; then
+    /home/ongsho_dev/script/backup.sh $DOMAIN '/home/ongsho_dev/backup'
+fi
 
 # Check if the domain directory already exists
 WWW_DIR="/var/www/$DOMAIN"
@@ -61,6 +63,17 @@ if [ -d "$LOGS_DIR" ]; then
     echo "Deleting logs directory $LOGS_DIR..."
     sudo rm -rf "$LOGS_DIR"
     echo "Logs directory deleted successfully."
+fi
+
+SSL_DIR="/etc/letsencrypt/live/$DOMAIN"
+
+# delete ssl configuration
+sudo certbot delete --cert-name $DOMAIN --non-interactive
+
+if [ -d "$SSL_DIR" ]; then
+    echo "Deleting SSL directory $SSL_DIR..."
+    sudo rm -rf "$SSL_DIR"
+    echo "SSL directory deleted successfully."
 fi
 
 # Update ongsho_cloud status

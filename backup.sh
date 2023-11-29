@@ -56,12 +56,16 @@ echo "Step 4: Copied the web directory to $BACKUP_DIR/www"
 sudo mysqldump -u root_user_for_Nginx_block "$DB_NAME" > "$BACKUP_PATH/$BACKUP_DIR/$DB_NAME.sql"
 echo "Step 5: Backed up MySQL database to $BACKUP_DIR/$DB_NAME.sql"
 
+# copy SSl certificate
+sudo cp /etc/letsencrypt/live/$DOMAIN "$BACKUP_PATH/$BACKUP_DIR/ssl"
+echo "Step 6: Copied SSL certificate to $BACKUP_DIR/ssl"
+
 # Zip the backup directory
 sudo zip -r "$BACKUP_PATH/$BACKUP_DIR.zip" "$BACKUP_PATH/$BACKUP_DIR"
-echo "Step 6: Zipped the backup directory to $BACKUP_DIR.zip"
+echo "Step 7: Zipped the backup directory to $BACKUP_DIR.zip"
 
 # # Remove the uncompressed backup directory
 rm -r "$BACKUP_PATH/$BACKUP_DIR"
-echo "Step 7: Removed the uncompressed backup directory"
+echo "Step 8: Removed the uncompressed backup directory"
 
 echo "Backup completed. The backup files are stored in: $BACKUP_DIR.zip"
