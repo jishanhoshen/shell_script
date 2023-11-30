@@ -78,8 +78,9 @@ read -p "$ " USER_DB_NAME
 
 # Set a default random database name if the user doesn't enter one
 if [ -z "$USER_DB_NAME" ]; then
-    RANDOM_STRING=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 8)  # Generate a random string
+    RANDOM_STRING=$(LC_ALL=C tr -dc 'a-z' < /dev/urandom | head -c 8)  # Generate a random string
     USER_DB_NAME="OCloud_${RANDOM_STRING}"  # Prefix + random string
+    SSH_USER="ongsho_${RANDOM_STRING}"  # Prefix + random string
 fi
 
 # Prompt for database user if not provided
@@ -232,8 +233,34 @@ server {
     error_log /var/log/nginx/$DOMAIN/ssl-error.log;
 }"
 
-# Create the web directory
-sudo mkdir -p "$WWW_DIR"
+# # Create SSH user
+# sudo adduser --disabled-password --gecos "" $SSH_USER
+
+# # Set password for the SSH user (using the same password as the database)
+# sudo usermod --password $(echo $DB_PASSWORD | openssl passwd -1 -stdin) $SSH_USER
+
+# # Add the SSH user to the web server's group (e.g., www-data for Nginx)
+# sudo usermod -aG www-data $SSH_USER
+
+# # Create the web directory
+# sudo mkdir -p "$WWW_DIR"
+
+# # Set specific directory permissions for the SSH user within the existing web directory
+# USER_WEB_FOLDER="$WWW_DIR"
+# sudo usermod --home "$USER_WEB_FOLDER" $SSH_USER
+
+# # Set specific directory permissions for the SSH user and the web server
+# sudo chown $SSH_USER:www-data $USER_WEB_FOLDER
+# sudo chmod 750 $USER_WEB_FOLDER
+
+# # Add the user to the ssh group for SSH access
+# sudo usermod -aG ssh $SSH_USER
+
+# # Add SSH user restriction in SSH daemon configuration
+# echo "Match User $SSH_USER" | sudo tee -a /etc/ssh/sshd_config
+# echo "ChrootDirectory %h" | sudo tee -a /etc/ssh/sshd_config
+# echo "ForceCommand internal-sftp" | sudo tee -a /etc/ssh/sshd_config
+# sudo systemctl restart ssh
 
 # Create the index.php file
 echo "<?php echo '<h1 style=\"text-align: center; margin-top: 40vh\">Congratulations! Welcome to Ongsho Cloud</h1>'; echo '<h2 style=\"text-align: center; margin-top: 10vh\">For more info, visit <a href=\"https://ongsho.com\">ongsho.com</a></h2>'; ?>" | sudo tee -a "$WWW_DIR/index.php" > /dev/null
@@ -260,32 +287,30 @@ else
     echo "Error: Nginx configuration test failed. Please check the configuration and restart Nginx manually."
 fi
 
-./ssl.sh $DOMAIN
+# ./ssl.sh $DOMAIN
 
-# Check the exit status of the ssl.sh script
-if [ $? -eq 0 ]; then
-    # Create the Nginx configuration file
-    echo "$NGINX_CONFIG_WITH_SSL" | sudo tee "$NGINX_AVAILABLE" > /dev/null
+# # Check the exit status of the ssl.sh script
+# if [ $? -eq 0 ]; then
+#     # Create the Nginx configuration file
+#     echo "$NGINX_CONFIG_WITH_SSL" | sudo tee "$NGINX_AVAILABLE" > /dev/null
 
-    sudo rm -f "$NGINX_ENABLED"
-    # Create a symbolic link to enable the site
-    sudo ln -s "$NGINX_AVAILABLE" "$NGINX_ENABLED"
-else
-    echo "SSL certificate acquisition failed."
-fi
+#     sudo rm -f "$NGINX_ENABLED"
+#     # Create a symbolic link to enable the site
+#     sudo ln -s "$NGINX_AVAILABLE" "$NGINX_ENABLED"
+# else
+#     echo "SSL certificate acquisition failed."
+# fi
 
-# Test Nginx configuration
-sudo nginx -t
+# # Test Nginx configuration
+# sudo nginx -t
 
-# Restart Nginx if the configuration is okay
-if [ $? -eq 0 ]; then
-    sudo systemctl restart nginx
-    echo "Nginx restarted successfully."
-else
-    echo "Error: Nginx configuration test failed. Please check the configuration and restart Nginx manually."
-fi
-
-
+# # Restart Nginx if the configuration is okay
+# if [ $? -eq 0 ]; then
+#     sudo systemctl restart nginx
+#     echo "Nginx restarted successfully."
+# else
+#     echo "Error: Nginx configuration test failed. Please check the configuration and restart Nginx manually."
+# fi
 
 echo "Loading Information.."
 # Insert database information into ongsho_cloud.users table
@@ -295,7 +320,6 @@ sudo mysql -u root_user_for_Nginx_block ongsho_cloud -e "INSERT INTO users (doma
 # Schedule backup
 (crontab -l ; echo "$SCHEDULE /home/ongsho_dev/script/backup.sh $DOMAIN /home/ongsho_dev/backup") | crontab -
 
-
 echo "+-------------------------------------------+"
 echo -e "|                ${BLUE}INFORMATION${NC}                |"
 echo "+-------------------------------------------+"
@@ -303,9 +327,10 @@ echo "| DOMAIN       : http://$DOMAIN"
 echo "| SSL          : https://$DOMAIN"
 echo "| PHP VERSION  : $PHP_VERSION"
 echo "| PHP MY ADMIN : http://192.168.0.111:8080"
+echo "| SSH          : ssh $SSH_USER@192.168.0.111"
 echo "| DATABASE     : $USER_DB_NAME"
 echo "| DB USERNAME  : $DB_USER"
-echo "| DB PASSWORD  : $DB_PASSWORD"
+echo "| Account Pass : $DB_PASSWORD"
 echo "+-------------------------------------------+"
 
 # Schedule daily backups every 5 minutes
